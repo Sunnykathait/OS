@@ -1,0 +1,126 @@
+#include<stdio.h>
+#include<stdlib.h>
+
+// defining process as a structure
+struct process{
+	int process_no;
+	int at; 			// Arrival time
+	int bt;				// Burst time
+	int ct; 			// Completion time
+	int wt;				// Waiting time
+	struct process* next;
+};
+
+// global variable for process Id's
+int pId = 0;
+
+// fucntion for allocation the memory for the process.
+struct process *createProcess(int at , int bt){
+	struct process *proc = (struct process *)malloc(sizeof(struct process));
+	if(!proc){
+		printf("Error creating the process , try again later.....");
+		exit(0);
+	}else{
+		proc->process_no = ++pId;
+		proc->at = at;
+		proc->bt = bt;
+		proc->ct = -1;
+		proc->wt = -1;
+		proc->next = NULL;
+	}
+}
+
+// function to enter the process in the queue with infromation
+struct process* enterProcess(int n){
+	struct process *start = NULL;
+	struct process *end = NULL;
+	struct process *temp;
+	
+	int at , bt;
+	
+	for(int i = 0 ; i < n ; i++){
+		
+		printf("Enter the arrival time and burst time for process %d : ",pId);
+		scanf("%d%d",&at,&bt);
+		
+		temp = createProcess(at , bt);
+		if(start == end && start == NULL){
+			start = temp;
+			end = start;
+		}else{
+			end->next = temp;
+			end = temp;
+		}
+	}
+	
+	return start;
+}
+
+// utitlity function to print process and see their arrival time and burst time
+void printProcess(struct process *start){
+	struct process* temp = start;
+	printf("\n");
+	while(temp!=NULL){
+		printf("Process %d : ",temp->process_no);
+		printf("\t\tArrival Time\t\t\tBurstTime\t\tCompletion Time\t\tWaiting time");
+		printf("\t\t\t\t %d \t\t\t\t %d \t\t\t %d \t\t\t %d\n\n",temp->at,temp->bt,temp->ct,temp->wt);
+		temp = temp->next;
+	}
+}
+
+// utility function for visualizing the process exceution by creating a grantt chart
+void createGranttChart(struct process *start){
+	struct process *temp = start;
+	
+	printf("\n\n|\t");
+	
+	if(temp->at > 0){
+		printf("\t|\t");
+	}
+	
+	while(temp != NULL){
+		printf("P%d",temp->process_no);
+		printf("\t|\t");
+		if(temp->ct < temp->next->at){
+			printf("\t|\t");
+		}
+		temp = temp->next;
+	}
+	
+	printf("\n");	
+}
+
+
+// **IMPORTANT FUNCTION : function for doing all the neccessary calculation s
+void executeProcess(struct process *start){	
+	struct process *temp = start;
+	int total_time = temp->at;
+	
+	while(temp != NULL){
+		if(total_time >= temp->at){
+			temp->wt = total_time - temp->at;
+			total_time += temp->bt;
+			temp->ct = total_time;
+		}else{
+			total_time = temp->at;
+			temp->wt = total_time - temp->at;
+			total_time += temp->bt;
+			temp->ct = total_time;
+		}
+		temp = temp->next;	
+	}
+}
+
+// driver function...
+int main(){
+	
+	// you can make a variable and assign it any number you want and then pass to enterProcess
+	// to make those number of processes.
+	
+	struct process *start = enterProcess(3);
+	
+//	executeProcess(start);
+//	createGranttChart(start);
+	
+	return 0;
+}
