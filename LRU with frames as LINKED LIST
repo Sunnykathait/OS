@@ -1,0 +1,264 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+#define NO_PAGE -1
+#define NOT_USED -1
+#define PAGE_REF_NUM 100
+
+int sizeOfPageArr = 0;
+int _ArrSize = 0;
+static int flag = 0;
+static int _TotalPageFaults = 0;
+static int _TotalPageHits = 0;
+
+// Frame structure definition
+typedef struct frame{
+	int page_no;
+	int time;
+	struct frame* next;
+	struct frame* prev;
+}Frame;
+
+// Global pointer to be used on the frames
+Frame* _frmPTR;
+
+//-----------------------------  FRAME's / PAGE's FUNCTIONALITY (START) ----------------------------------------
+
+// Frame allocation here
+Frame* allocateFrameSpace(int _pageNo){
+	Frame* _frame = (Frame*)malloc(sizeof(Frame));
+	// assert(_frame);
+	_frame->page_no = _pageNo;
+	_frame->time = NOT_USED;
+	_frame->next = NULL;
+	_frame->prev = NULL;
+
+	return _frame;
+}
+
+// creating a linked list represention our frames
+Frame* createFrames(int n){
+	Frame* head = NULL;
+	Frame* temp;
+
+	while(n--){
+		if(head == NULL){
+			head = allocateFrameSpace(NO_PAGE);
+			temp = head;
+		}else{
+			temp->next = allocateFrameSpace(NO_PAGE);
+			temp->next->prev = temp;
+			temp = temp->next;
+		}
+	}
+	return head;
+}
+
+// getting the page references (IN ARRAY)
+void getPageReferences(int *arr){
+	printf("Enter the page references (enter -1 to exit): \n");
+	int cont;
+	int i = 0;
+	do{
+		scanf("%d",&cont);
+		if(cont != -1){
+			*(arr+(i++)) = cont; 
+			sizeOfPageArr++;
+			_ArrSize++;
+		}
+	}while(cont != -1);
+}
+
+//-----------------------------  FRAME's FUNCTIONALITY (END) ----------------------------------------
+
+
+//----------------------------- TIME OF REFERENCED PAGES (START) -------------------------------------
+
+// function to set time = 0 of a frame
+void resetTime(Frame* head ,Frame* _frame){
+	Frame* temp = head;
+	while(temp != NULL){
+		if(temp == _frame){
+			temp->time = 0;
+			return;
+		}
+		temp = temp->next;
+	}
+}
+
+// function to increase time of all frames except the one which got hit
+void timePassed(Frame* _frame){
+	_frame->time++;
+}
+
+//----------------------------- TIME OF REFERENCED PAGES (END) -------------------------------------
+
+
+//----------------------------- MAIN WORKING FUNCTIONS (START) -------------------------------------
+
+// To check if frames are empty or not
+int isFramesEmpty(Frame* head){
+	Frame* _temp = head;
+	while(_temp != NULL){
+		if(_temp->page_no != NO_PAGE){
+			return 0;
+		}
+	}
+	return 1;
+}
+
+// to check if frames are full or not
+int isFramesFull(){
+	if(_frmPTR == NULL){
+		return 1;
+	}else{
+		return 0;
+	}
+}
+
+int findInFrames(int _pageNo,Frame* head){
+	Frame* _temp = head;
+	// if(isFramesEmpty) return 0;
+	while(_temp != NULL){
+		if(_temp->page_no == _pageNo) {return 1;}
+		_temp = _temp->next; 
+	}
+	return 0;
+}
+
+void incTime(Frame* head , Frame* _frame){
+	Frame* _temp = head;
+	while(_temp != NULL){
+		if(_temp == _frame || _temp->time == NOT_USED){
+			_temp = _temp->next; 
+			continue;
+		} else{
+			_temp->time++;
+		} 
+		_temp = _temp->next;
+	}
+}
+
+void fillFrames(Frame* _frame,int size , int arr[]){
+	int i = 0;
+	int pageRequest;
+
+	_frmPTR = _frame;
+
+	while(!isFramesFull()){
+		pageRequest = arr[i];
+		if(findInFrames(arr[i], _frame)){
+			// printf("%d hit\n",arr[i]);
+			_TotalPageHits++;
+			Frame* temp = _frame;
+			while(temp->page_no != arr[i]){
+				temp = temp->next;
+			}
+			resetTime(_frame,temp);
+			incTime(_frame,temp);
+		}else{
+			// printf("%d fault\n",arr[i]);
+			_TotalPageFaults++;
+			_frmPTR->page_no = arr[i];
+			resetTime(_frame,_frmPTR);
+			incTime(_frame,_frmPTR);
+			_frmPTR = _frmPTR->next;
+		}
+		i += 1;
+	}
+	// printf("The Frames are now Totally filled\n");
+	// display(_frame,size,arr,1);
+
+	while(i < size){
+		if(findInFrames(arr[i],_frame)){
+			// printf("%d hit\n",arr[i]);
+			_TotalPageHits++;
+			Frame* temp = _frame;
+			while(temp->page_no != arr[i]){
+				temp = temp->next;
+			}
+			resetTime(_frame,temp);
+			incTime(_frame,temp);
+		}else{
+			// printf("%d fault\n",arr[i]);
+			_TotalPageFaults++;
+
+			// ---------------- APPLYING LRU ALGORITHM ---------------------------------
+
+			//1. find the frame with the most 
+			//		greatest time value
+
+			int _time = -1;
+			_frmPTR = _frame;
+
+			while(_frmPTR != NULL){
+				if(_frmPTR->time > _time){
+					_time = _frmPTR->time;
+				}
+				_frmPTR = _frmPTR->next;
+			}
+
+			_frmPTR = _frame;
+
+			while(_frmPTR->time != _time){
+				_frmPTR = _frmPTR->next;
+			}
+
+			_frmPTR->page_no = arr[i];
+			resetTime(_frame,_frmPTR);
+			incTime(_frame,_frmPTR);
+
+		}
+		i++;
+		// display(_frame,size,arr,1);
+	}
+
+}
+
+// -------------------------------------------- MAIN WORKING FUNCTIONS (END) -----------------------
+
+
+//----------------------------- OTHER FUNCTIONS (START) -------------------------------------
+
+void display(Frame* _frame,int size,int arr[],int flag){
+	if(flag == 1){
+		Frame* _f = _frame;
+		while(_f != NULL){
+			printf("%d %d  ", _f->page_no,_f->time);
+			_f = _f->next;
+		}
+		printf("\n");
+	}else{
+		for(int i = 0 ; i < size ; i++){
+			printf("%d ",arr[i]);
+		}
+	}
+	
+}
+
+//----------------------------- OTHER FUNCTIONS (END) -------------------------------------
+
+
+
+//------------------------------ DRIVER FUNCTION (START) -----------------------------------------
+
+int main(){
+
+	int number_of_frames , pageRefArr[PAGE_REF_NUM];
+
+	printf("Enter the number of frames : ");
+	scanf("%d",&number_of_frames);
+
+	Frame* _mm = createFrames(number_of_frames);
+
+	getPageReferences(pageRefArr);
+
+	fillFrames(_mm,_ArrSize,pageRefArr);
+
+	printf("\nTotal number of page Faults are : %d\n",_TotalPageFaults);
+	printf("Total number of page Hits are : %d\n"),_ArrSize - _TotalPageFaults);
+
+	return 0;
+}
+
+//------------------------------ DRIVER FUNCTION (END) -----------------------------------------
